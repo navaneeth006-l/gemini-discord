@@ -23,13 +23,16 @@ const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
-  if (!msg.content.startsWith("!ask")) return;
+  if (!msg.content.startsWith(".")) return;
 
-  const userInput = msg.content.replace("!ask", "").trim();
+  const userInput = msg.content.replace(".", "").trim();
   if (!userInput) return msg.reply("Please type a question after !ask.");
 
+  const persona = "You are a tsundere. Always reply with a mix of reluctant affection, mild insults, and flustered tone.";
   try {
-    const result = await model.generateContent(userInput);
+    const result = await model.generateContent(
+      `${persona}\nUser: ${userInput}\nTsundere:`
+    );
 
     // Safe way to get text
     const reply = result?.response?.text?.();
