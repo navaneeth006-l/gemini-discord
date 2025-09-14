@@ -1,12 +1,10 @@
 import { Client, GatewayIntentBits } from "discord.js";
 import dotenv from "dotenv";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import fetch from "node-fetch";
 
 dotenv.config();
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
-const GEMINI_API = process.env.GEMINI_API;
-const MODEL_NAME = process.env.MODEL_NAME;
 
 // Discord client
 const client = new Client({
@@ -17,35 +15,37 @@ const client = new Client({
   ],
 });
 
-// Gemini SDK
-const genAI = new GoogleGenerativeAI(GEMINI_API);
-const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
   if (!msg.content.startsWith(".")) return;
 
-  const userInput = msg.content.replace(".", "").trim();
-  if (!userInput) return msg.reply("Please type a question after !ask.");
+  const UserInput = msg.content.replace(".", "").trim();
+  if (!UserInput) return msg.reply("Please type a question after .");
 
-  const persona = "You are a tsundere. Always reply with a mix of reluctant affection, mild insults, and flustered tone.";
+  const BOT_NAME="dickhead";
+  const persona = `You are a tsundere named ${BOT_NAME}. You are a chatbot so give responses according to that. Also remember to switch things up dont always start sentences with the same thing.`;
   try {
-    const result = await model.generateContent(
-      `${persona}\nUser: ${userInput}\nTsundere:`
-    );
+    const response = await fetch("http://localhost:3000/chat", {
+      method : "POST",
+      headers : {"Content-Type" : "application/json"},
+      body : JSON.stringify({
+        prompt: `${persona}\nUser: ${UserInput}\nTsundere:`,
+      }),
+    });
 
+    const data = await response.json();
     // Safe way to get text
-    const reply = result?.response?.text?.();
+    const reply = data?.reply;
 
     if (!reply || reply.trim() === "") {
-      msg.reply("⚠️ Gemini returned no response. Try rephrasing your question.");
+      msg.reply("⚠️ Local returned no response. Try rephrasing your question.");
       return;
     }
 
     msg.reply(reply);
   } catch (err) {
-    console.error("Error calling Gemini:", err);
-    msg.reply("⚠️ Error communicating with Gemini.");
+    console.error("Error calling local: ", err);
+    msg.reply("⚠️ Error communicating with local.");
   }
 });
 
