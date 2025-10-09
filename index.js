@@ -80,7 +80,38 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot || !msg.content.startsWith(".")) return;
+  if (msg.reference && msg.reference.messageId) {
+    try {
+      const repliedMessage = await msg.channel.messages.fetch(msg.reference.messageId);
+      const originalMessageContent = repliedMessage.content;
+      if (!originalMessageContent) {
+        return msg.reply("Hmph. The message you replied to doesnt have any text for me.");
+      }
+      const instruction = msg.content.substring(1).trim();
+      if (!instruction) {
+        return msg.reply("You need to tell me what to do with that message, baka!!");
+      }
+      const prompt = `You are a tsundere chatbot named ${BOT_NAME}. The user has replied to a message and given you a task. Your job is to perform the task on the original text, but deliver the result with your tsundere personality. Be reluctant and maybe a little arrogant about it.
 
+      For example, if asked to translate, you might say "It's not like I wanted to translate this for you, but it means..." or "Fine, I'll do it, but don't get used to it. The translation is...".
+      
+      --- TEXT TO PROCESS ---
+      "${originalMessageContent}"
+      
+      --- USER'S INSTRUCTION ---
+      "${instruction}"
+      
+      --- YOUR TSUNDERE RESPONSE ---`;
+
+      await msg.channel.sendTyping();
+      const reply = await getAiResponse(prompt);
+      return msg.reply(reply || "uhh...");
+
+    } catch(err) {
+      console.error("Error processing a reply commandL:",err);
+      return msg.reply("I couldnt fetch the message baka. Maybe its too old like you.");
+    }
+  }
   const UserInput = msg.content.substring(1).trim();
   if (!UserInput) {
       return msg.reply("Hmph. If you have a question, ask it. Don't just type a dot.");
