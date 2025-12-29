@@ -34,6 +34,13 @@ const commands = [
     new SlashCommandBuilder()
         .setName('praise')
         .setDescription('Tell me how great I am.'),
+    new SlashCommandBuilder()
+        .setName('play')
+        .setDescription('Plays a local music file.')
+        .addStringOption(option => 
+            option.setName('filename')
+                .setDescription('The name of the file in the music folder (e.g., test.mp3)')
+                .setRequired(true)),
 ].map(command=>command.toJSON());
 const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 console.log('Started refreshing application (/) commands.');
