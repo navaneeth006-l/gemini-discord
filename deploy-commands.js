@@ -41,6 +41,9 @@ const commands = [
             option.setName('filename')
                 .setDescription('The name of the file in the music folder (e.g., test.mp3)')
                 .setRequired(true)),
+    new SlashCommandBuilder()
+            .setName('stop')
+            .setDescription('Stop ts'),
 ].map(command=>command.toJSON());
 const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 console.log('Started refreshing application (/) commands.');
