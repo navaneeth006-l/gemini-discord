@@ -1,10 +1,17 @@
 import { Client, GatewayIntentBits, Events } from "discord.js";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
+import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, entersState, VoiceConnectionStatus } from '@discordjs/voice';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Discord client
 const client = new Client({
@@ -12,6 +19,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates,
   ],
 });
 const BOT_NAME="dickhead";
@@ -67,6 +75,57 @@ client.on(Events.InteractionCreate, async interaction => {
       const prompt = `You are a tsundere chatbot named ${BOT_NAME}. The user, ${interaction.user.username}, just praised you and said you're amazing. Write a flustered but arrogant tsundere response.`;
       reply = await getAiResponse(prompt);
     }
+    else if (commandName === 'play') {
+      const fileName = interaction.options.getString('filename');
+      const voiceChannel = interaction.member.voice.channel;
+
+      if (!voiceChannel) {
+        return interaction.editReply("Hmph. You expect me to play music to thin air? Join a voice channel first, dummy.");
+      }
+
+      const musicPath = path.join(__dirname, 'music', fileName);
+      if (!fs.existsSync(musicPath)) {
+        return interaction.editReply(`I looked in the music folder, but I couldn't find "${fileName}". Are you sure you spelled it right?`);
+      }
+
+      try {
+        const connection = joinVoiceChannel({
+          channelId: voiceChannel.id,
+          guildId: voiceChannel.guild.id,
+          adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+          selfMute: false,
+          selfDeaf: false,
+        });
+
+        await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+
+        const player = createAudioPlayer();
+        const resource = createAudioResource(musicPath);
+
+        player.play(resource);
+        connection.subscribe(player);
+
+        player.on('error', error => {
+          console.error('Player Error:', error);
+          interaction.followUp(`⚠️ The music player crashed! Error: ${error.message}`);
+        });
+
+        player.on(AudioPlayerStatus.Idle, () => {
+          console.log('Playback finished.');
+        });
+
+        await interaction.editReply(`Fine. I'll play **${fileName}** for you. But don't think I'm enjoying it! 🎵`);
+        
+      
+        return;
+
+      } catch (err) {
+        console.error("Voice Error:", err);
+        await interaction.editReply("Ugh, I couldn't connect to the voice channel. It timed out or something broke.");
+        
+        return;
+    }
+  }
     await interaction.editReply(reply || "I... I have nothing to say about that. Dummy.");
 
   }catch (error){
