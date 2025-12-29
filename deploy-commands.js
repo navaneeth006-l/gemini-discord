@@ -44,6 +44,9 @@ const commands = [
     new SlashCommandBuilder()
             .setName('stop')
             .setDescription('Stop ts'),
+    new SlashCommandBuilder()
+            .setName('list')
+            .setDescription('List all available songs.'),
 ].map(command=>command.toJSON());
 const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 console.log('Started refreshing application (/) commands.');
