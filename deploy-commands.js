@@ -50,6 +50,9 @@ const commands = [
     new SlashCommandBuilder()
             .setName('skip')
             .setDescription('skip the current track'),
+    new SlashCommandBuilder()
+            .setName('connect')
+            .setDescription('connect to vc'),
 ].map(command=>command.toJSON());
 const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 console.log('Started refreshing application (/) commands.');
