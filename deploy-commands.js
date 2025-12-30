@@ -47,6 +47,9 @@ const commands = [
     new SlashCommandBuilder()
             .setName('list')
             .setDescription('List all available songs.'),
+    new SlashCommandBuilder()
+            .setName('skip')
+            .setDescription('skip the current track'),
 ].map(command=>command.toJSON());
 const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 console.log('Started refreshing application (/) commands.');

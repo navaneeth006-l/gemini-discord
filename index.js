@@ -13,7 +13,6 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -45,7 +44,8 @@ async function getAiResponse(prompt) {
 
 
 function getRandomFile(files) {
-    return files[Math.floor(Math.random() * files.length)];
+   let a=Math.floor(Math.random() * files.length);
+    return files[a];
 }
 
 function playTrack(guildId, fileName, connection) {
@@ -163,6 +163,14 @@ client.on(Events.InteractionCreate, async interaction => {
         connection.destroy();
         serverStates.delete(interaction.guild.id);
         return interaction.editReply("Fine! I stopped.");
+    }
+    else if (commandName === 'skip') {
+      const connection = getVoiceConnection(interaction.guild.id);
+      const state=serverStates.get(interaction.guild.id);
+      if (!connection || !state || !state.player) return interaction.editReply("T'm not playing anything baka.");
+      state.player.stop();
+      return interaction.editReply(`Skipped`);
+
     }
 
     
