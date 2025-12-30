@@ -5,6 +5,8 @@ import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerSt
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { pipeline } from 'stream'; 
+import { promisify } from 'util';
 
 dotenv.config();
 
@@ -12,6 +14,7 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const streamPipeline = promisify(pipeline);
 
 const client = new Client({
   intents: [
@@ -24,7 +27,39 @@ const client = new Client({
 
 const BOT_NAME = "dickhead";
 const serverStates = new Map();
+async function generateTTS(text, guildId) {
+    try {
+        console.log(`[TTS] Requesting audio for: "${text.substring(0, 20)}..."`);
+        
+        // Call your running Python server
+        const response = await fetch("http://localhost:5000/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                text: text,
+                language: "en" // We are forcing English for now
+            }), 
+        });
 
+        if (!response.ok) throw new Error("TTS Server Error");
+
+        // Create 'music' folder if it doesn't exist
+        const musicDir = path.join(__dirname, 'music');
+        if (!fs.existsSync(musicDir)) fs.mkdirSync(musicDir);
+        
+        // Save the audio file as 'tts_GUILDID.wav'
+        const fileName = `tts_${guildId}.wav`;
+        const filePath = path.join(musicDir, fileName);
+
+        // Save the stream to disk
+        await streamPipeline(response.body, fs.createWriteStream(filePath));
+        console.log(`[TTS] Saved to ${filePath}`);
+        return filePath;
+    } catch (err) {
+        console.error("TTS Error:", err);
+        return null;
+    }
+}
 
 async function getAiResponse(prompt) {
   try {
@@ -77,6 +112,9 @@ function playTrack(guildId, fileName, connection) {
     const currentState = serverStates.get(guildId);
     if (!currentState) return;
 
+    if (currentState.currentTrack.startsWith('tts_')) {
+        return; 
+    }
     let nextFile;
 
     
@@ -115,19 +153,26 @@ client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const { commandName } = interaction;
   await interaction.deferReply();
-  let reply;
+  let replyText="";
   
   try {
+    const tsunderePrompt = `
+    You are a tsundere named ${BOT_NAME}. 
+    IMPORTANT: 
+    1. Speak English. Use Romaji for Japanese words.
+    2. BE BRIEF. Keep your response to 1 or 2 sentences MAX. 
+    3. Do not write long paragraphs.
+    `;
     if (commandName === 'roast') {
       const targetUser = interaction.options.getUser('user');
       const authorUser = interaction.user;
       const prompt = `You are a tsundere chatbot named ${BOT_NAME} . Your task is to write a funny roast about the user named "${targetUser.username}",who was nomuinated by "${authorUser.username}".Dont hold back.`;
-      reply = await getAiResponse(prompt);
+      replyText = await getAiResponse(prompt);
     }
     else if (commandName === 'whatif') {
       const scenario = interaction.options.getString('scenario');
       const prompt = `You are a tsundere chatbot named ${BOT_NAME}. The user has a "what if" question. Respond creatively, perhaps with a little reluctance or attitude, to the following scenario: "${scenario}"`;
-      reply = await getAiResponse(prompt);
+      replyText = await getAiResponse(prompt);
     }
     else if (commandName === 'summarize') {
       const text = interaction.options.getString('text');
@@ -136,11 +181,43 @@ client.on(Events.InteractionCreate, async interaction => {
         return;
       }
       const prompt = `You are a tsundere chatbot named ${BOT_NAME}. Summarize: "${text}"`;
-      reply = await getAiResponse(prompt);
+      replyText = await getAiResponse(prompt);
     }
     else if (commandName === 'pat' || commandName === 'praise') {
       const prompt = `You are a tsundere chatbot named ${BOT_NAME}. User ${interaction.user.username} interacted. React.`;
-      reply = await getAiResponse(prompt);
+      replyText = await getAiResponse(prompt);
+    }
+    const connection = getVoiceConnection(interaction.guild.id);
+    
+    // If the bot is in a voice channel AND we have text to say...
+    if (replyText && connection) {
+        // Send the text to the chat first
+        await interaction.editReply(`🗣️ **${BOT_NAME}:** ${replyText}`);
+        
+        // Generate the Audio File
+        const ttsPath = await generateTTS(replyText, interaction.guild.id);
+        
+        if (ttsPath) {
+            // Initialize state if missing (so it doesn't crash)
+            if (!serverStates.has(interaction.guild.id)) {
+                serverStates.set(interaction.guild.id, {
+                    mode: 'single',
+                    allFiles: [],
+                    currentTrack: '',
+                    player: null
+                });
+            }
+            
+            // Play the generated file
+            playTrack(interaction.guild.id, path.basename(ttsPath), connection);
+        }
+        return; // Exit here, we are done
+    }
+
+    // If NOT in voice, just send text
+    if (replyText) {
+        await interaction.editReply(replyText);
+        return;
     }
     else if (commandName === 'list'){
       const musicDir = path.join(__dirname, 'music');
@@ -156,7 +233,20 @@ client.on(Events.InteractionCreate, async interaction => {
       }
       return interaction.editReply(msg);
     }
-    
+    else if (commandName === 'connect') {
+        const voiceChannel = interaction.member.voice.channel;
+        if (!voiceChannel) return interaction.editReply("Join a voice channel first!");
+        
+        const connection = joinVoiceChannel({
+            channelId: voiceChannel.id,
+            guildId: voiceChannel.guild.id,
+            adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+        });
+        
+        // Wait for connection to be ready
+        await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+        return interaction.editReply("Connected! I am listening.");
+    }
     else if (commandName === 'stop') {
         const connection = getVoiceConnection(interaction.guild.id);
         if (!connection) return interaction.editReply("I'm not playing anything.");
@@ -240,7 +330,7 @@ client.on(Events.InteractionCreate, async interaction => {
       return interaction.editReply(`Playing **${startFile}** (${mode} mode).`);
     }
 
-    if (reply) await interaction.editReply(reply);
+    if (replyText) await interaction.editReply(reply);
 
   } catch (error) {
     console.error("Error:", error);
@@ -258,7 +348,20 @@ client.on("messageCreate", async (msg) => {
   const prompt = `You are a tsundere named ${BOT_NAME}. User: ${userInput}`;
   try {
     const reply = await getAiResponse(prompt);
+    const connection = getVoiceConnection(msg.guild.id);
+    if (reply && connection){
+      msg.reply(`🗣️ ${reply}`);
+        const ttsPath = await generateTTS(reply, msg.guild.id);
+        if (ttsPath) {
+             if (!serverStates.has(msg.guild.id)) {
+                serverStates.set(msg.guild.id, { mode: 'single', allFiles: [], currentTrack: '', player: null });
+            }
+            playTrack(msg.guild.id, path.basename(ttsPath), connection);
+    }
+  }
+  else{
     msg.reply(reply || "...");
+    }
   } catch (err) {
     msg.reply("⚠️ Error.");
   }
