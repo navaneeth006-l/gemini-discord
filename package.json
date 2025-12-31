@@ -1,0 +1,28 @@
+{
+  "name": "gemini-discord",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/navaneeth006-l/gemini-discord.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/navaneeth006-l/gemini-discord/issues"
+  },
+  "homepage": "https://github.com/navaneeth006-l/gemini-discord#readme",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "discord.js": "^14.22.1",
+    "dotenv": "^17.2.2",
+    "node-fetch": "^3.3.2"
+  }
+}
