@@ -2,12 +2,18 @@ import { Client, GatewayIntentBits, Events } from "discord.js";
 import dotenv from "dotenv";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import fetch from "node-fetch";
+import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, entersState, VoiceConnectionStatus, getVoiceConnection} from '@discordjs/voice';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const GEMINI_API = process.env.GEMINI_API;
 const MODEL_NAME = process.env.MODEL_NAME;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Discord client
 const client = new Client({
@@ -15,10 +21,11 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates,
   ],
 });
 const BOT_NAME="dickhead";
-// Gemini SDK
+const serverStates = new Map();
 const genAI = new GoogleGenerativeAI(GEMINI_API);
 const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 async function getAiResponse(prompt){
@@ -31,6 +38,59 @@ async function getAiResponse(prompt){
     console.error("Error calling Gemini API:",err);
     return "Something went wrong";
   }
+}
+function getRandomFile(files) {
+  let a = Math.floor(Math.random() * files.length);
+  return files[a];
+}
+function playTrack(guildId, fileName, connection) {
+  const state = serverStates.get(guildId);
+  if (!state) return;
+  const musicDir = path.join(__dirname, 'music');
+  const filePath = path.join(musicDir, fileName);
+  if (!fs.existsSync(filePath)) {
+    console.log(`[ERROR] File not found: ${fileName}`);
+    serverStates.delete(guildId);
+    return;
+  }
+  console.log(`[DEBUG] Playing: ${fileName}`);
+  const resource = createAudioResource(filePath);
+  const player = createAudioPlayer();
+  player.play(resource);
+  connection.subscribe(player);
+
+  state.player = player;
+  state.currentTrack = fileName;
+
+  player.on(AudioPlayerStatus.Idle, () => {
+    const currentState = serverStates.get(guildId);
+    if (!currentState) return;
+    let nextFile;
+
+    if (currentState.mode === 'shuffle') {
+      nextFile = getRandomFile(currentState.allFiles);
+    }
+    else if (currentState.mode === 'sequential') {
+      const currentNum = parseInt(currentState.currentTrack.replace('.mp3',''));
+      if (!isNaN(currentNum)) {
+        nextFile = `${currentNum + 1}.mp3`;
+      } else{
+        console.log("Sequence broken. Stopping.");
+        serverStates.delete(guildId);
+        return;
+      }
+    }
+    else{
+      serverStates.delete(guildId);
+      return;
+    }
+    playTrack(guildId, nextFile, connection);
+  });
+  player.on('error', error => {
+    console.error(`Error playing ${fileName}:`,error);
+    const currentState = serverStates.get(guildId);
+    if (currentState) player.emit(AudioPlayerStatus.Idle);
+  });
 }
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
@@ -70,7 +130,103 @@ client.on(Events.InteractionCreate, async interaction => {
       const prompt = `You are a tsundere chatbot named ${BOT_NAME}. The user, ${interaction.user.username}, just praised you and said you're amazing. Write a flustered but arrogant tsundere response.`;
       reply = await getAiResponse(prompt);
     }
-    await interaction.editReply(reply || "I... I have nothing to say about that. Dummy.");
+    else if (commandName === 'list') {
+      const musicDir = path.join(__dirname, 'music');
+      if (!fs.existsSync(musicDir)) return interaction.editReply("No music folder found.");
+      const files = fs.readdirSync(musicDir).filter( f => f.endsWith('.mp3'));
+      if (files.length === 0) return interaction.editReply("Your music folder is empty.");
+      const limit = 41;
+      const displayFiles = files.slice(0, limit);
+      const listString = displayFiles.map((f) => `${f}`).join('\n');
+      let msg = `**📂 Available Songs (${files.length} total):**\n${listString}`;
+      if (files.length > limit) {
+        msg += `\n...and ${files.length - limit} more.`;
+      }
+      return interaction.editReply(msg);
+    }
+    else if (commandName === 'connect') {
+      const voiceChannel = interaction.member.voice.channel;
+      if (!voiceChannel) return interaction.editReply("Join a voice channel first!");
+
+      const connection = joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId: voiceChannel.guild.id,
+        adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+      });
+      await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+      return interaction.editReply("Connected! I am listening.");
+    }
+    else if (commandName === 'stop') {
+      const connection = getVoiceConnection(interaction.guild.id);
+      if (!connection) return interaction.editReply("I'm not playing anything.");
+      connection.destroy();
+      serverStates.delete(interaction.guild.id);
+      return interaction.editReply("Fine! I stopped.");
+    }
+    else if (commandName === 'skip') {
+      const connection = getVoiceConnection(interaction.guild.id);
+      const state = serverStates.get(interaction.guild.id);
+      if (!connection || !state || !state.player) return interaction.editReply("I'm not playing anything baka!");
+      state.player.stop();
+      return interaction.editReply(`Skipped`);
+    }
+    else if (commandName === 'play'){
+      const userInput = interaction.options.getString('filename');
+      const voiceChannel = interaction.member.voice.channel;
+
+      if (!voiceChannel) return interaction.editReply("Join a voice channel first.");
+      const musicDir = path.join(__dirname, 'music');
+      if (!fs.existsSync(musicDir)) return interaction.editReply(`No music folder found.`);
+      const files = fs.readdirSync(musicDir).filter(f => f.endsWith('.mp3'));
+      if (files.length === 0) return interaction.editReply("Your music folder is empty.");
+
+      let startFile;
+      let mode;
+
+      if (userInput.toLowerCase() === 'all' || userInput.toLowerCase() === 'random') {
+        mode = 'shuffle';
+        startFile = getRandomFile(files);
+      }
+      else if (!isNaN(parseInt(userInput))) {
+        mode = 'sequential';
+        startFile = `${userInput}.mp3`;
+        if (!files.includes(startFile)) {
+          return interaction.editReply(`Track **${startFile}** not found.`);
+        }
+      }
+      else {
+        mode = 'single';
+        startFile = files.find(f => f.toLowerCase().includes(userInput.toLowerCase()));
+        if (!startFile) {
+          return interaction.editReply(`I couldnt find any file matching "${userInput}".`);
+        }
+      }
+      let connection = getVoiceConnection(interaction.guild.id);
+      if (!connection) {
+        try {
+          connection = joinVoiceChannel({
+            channelId: voiceChannel.id,
+            guildId: voiceChannel.guild.id,
+            adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+            selfMute: false,
+            selfDeaf: false,
+          });
+          await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+        } catch (err) {
+          return interaction.editReply("Failed to join voice channel.");
+        }
+      }
+
+      serverStates.set(interaction.guild.id, {
+        mode: mode,
+        allFiles: files,
+        currentTrack: startFile,
+        player: null
+      });
+      playTrack(interaction.guild.id, startFile, connection);
+      return interaction.editReply(`Playing **${startFile}** (${mode} mode).`);
+    }
+    if (reply) await interaction.editReply(reply || "I... I have nothing to say about that. Dummy.");
 
   }catch (error){
     console.error("Error handling interaction:",error);
