@@ -44,3 +44,96 @@ This project runs as a system of microservices:
 ```bash
 git clone [https://github.com/YOUR_USERNAME/tsundere-bot.git](https://github.com/YOUR_USERNAME/tsundere-bot.git)
 cd tsundere-bot
+```
+### 2. Setup the Discord Bot (Node.js)
+```bash
+#Install Node dependencies
+npm install
+```
+### 3.Setup the TTS Server (Python)
+It is reccomended to use a virtual environment.
+```bash
+#Create virtal env
+python -m venv venv
+#Activate it (Windows)
+.\venv\Scripts\activate
+#Install Python Requirements
+pip install torch torchvision torchaudio --index-url [https://download.pytorch.org/whl/cu118](https://download.pytorch.org/whl/cu118)
+pip install TTS flask requests
+```
+### 4.Setup Ollama (Optional)
+If you want to use the local brain instead of Gemini:
+1.Download Ollama.
+2.Pull a lightweight model (recommended for speed alongside TTS):
+```bash
+ollama pull phi3:mini
+```
+## ⚙️Configuration 
+Create a .env file in the root folder and add your keys:
+```bash
+# --- Discord Config ---
+DISCORD_TOKEN=your_discord_bot_token_here
+
+# --- Brain Config (Choose One) ---
+# Option 1: Gemini (Cloud - Faster)
+GEMINI_API=your_google_gemini_api_key
+MODEL_NAME=gemini-1.5-flash
+
+# Option 2: Ollama (Local - Private)
+# (Configure inside index.js to switch to local fetch)
+OLLAMA_MODEL=phi3:mini
+```
+## ▶️ Usage
+You need two terminal windows open to run this bot.
+
+Terminal 1: Start the TTS Engine
+```bash
+# Activate your python venv first!
+python tts_server.py
+```
+Wait until you see: Running on http://127.0.0.1:5000
+
+Terminal 2: Start the Discord Bot
+```bash
+node index.js
+```
+## 🎮 Commands
+
+### Chat & Fun
+
+| Command | Description |
+| :--- | :--- |
+| `/roast @user` | Generates a savage roast for the target user. |
+| `/whatif [scenario]` | Asks the bot a hypothetical question. |
+| `/summarize [text]` | Summarizes a long text block with attitude. |
+| `/pat` | Headpat the bot (Trigger flustered response). |
+| `/praise` | Praise the bot (Trigger arrogant response). |
+| `.` (Dot command) | Chat normally. Example: `.Hello how are you?` |
+### Music & Voice
+| Command | Description |
+| :--- | :--- |
+| `/play [filename/all]` | Plays a specific song or shuffles all. |
+| `/stop` | Stops audio and disconnects. |
+| `/skip` | Skips the current song. |
+| `/list` | Lists available local MP3 files. |
+| `/connect` | Summons bot to voice channel without playing. |
+### 🔧 Troubleshooting
+1. "System Error" / 500 on TTS.
+
+- Check if reference.wav or reference.mp3 exists in the tts-service folder.
+
+- Ensure the filename matches exactly what is in tts_server.py.
+
+2. TTS is slow (20s+) or "Ollama crash".
+
+- Your GPU VRAM is full.
+
+- If running Ollama + TTS on a laptop (8GB VRAM), switch Ollama to phi3:mini or use Gemini.
+
+- Close your web browser to free up GPU memory.
+
+3. Bot replies twice.
+
+- You have two terminals open. Check Task Manager and kill any extra node processes.
+### 📜 License
+MIT License. Feel free to fork and modify!
