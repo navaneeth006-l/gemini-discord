@@ -119,13 +119,15 @@ node index.js
 | `/connect` | Summons bot to voice channel without playing. |
 ### 🔧 Troubleshooting
 **1. "System Error" / 500 on TTS.**
-    - Check if reference.wav or reference.mp3 exists in the tts-service folder.
-    - Ensure the filename matches exactly what is in tts_server.py.
+- Check if reference.wav or reference.mp3 exists in the tts-service folder.
+- Ensure the filename matches exactly what is in tts_server.py.
+
 **2. TTS is slow (20s+) or "Ollama crash".**
-    - Your GPU VRAM is full.
-    - If running Ollama + TTS on a laptop (8GB VRAM), switch Ollama to phi3:mini or use Gemini.
-    - Close your web browser to free up GPU memory.
+- Your GPU VRAM is full.
+- If running Ollama + TTS on a laptop (8GB VRAM), switch Ollama to phi3:mini or use Gemini.
+- Close your web browser to free up GPU memory.
+
 **3. Bot replies twice.**
-    - You have two terminals open. Check Task Manager and kill any extra node processes.
+- You have two terminals open. Check Task Manager and kill any extra node processes.
 ### 📜 License
 MIT License. Feel free to fork and modify!
