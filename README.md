@@ -4,7 +4,7 @@
 
 **TsundereBot** is a highly interactive Discord bot that brings anime characters to life using **Hybrid AI**. It uses **Google Gemini** (Cloud) OR **Ollama** (Local) for intelligence, paired with a **Python Microservice (Coqui TTS)** to generate realistic voice replies in real-time. It also functions as a local music player with smart shuffling.
 
-![NodeJS](https://img.shields.io/badge/Node.js-v18+-green) ![Python](https://img.shields.io/badge/Python-3.10+-blue) ![Ollama](https://img.shields.io/badge/AI-Ollama-black) ![Gemini](https://img.shields.io/badge/AI-Gemini_Flash-blue) ![Coqui TTS](https://img.shields.io/badge/AI-Coqui_XTTS-orange)
+[![NodeJS](https://img.shields.io/badge/Node.js-v18+-green)](https://nodejs.org/) [![Python](https://img.shields.io/badge/Python-3.10+-blue)](https://www.python.org/) [![Ollama](https://img.shields.io/badge/AI-Ollama-black)](https://github.com/ollama/ollama) [![Gemini](https://img.shields.io/badge/AI-Gemini_Flash-blue)](https://ai.google.dev/) [![Coqui TTS](https://img.shields.io/badge/AI-Coqui_XTTS-orange)](https://github.com/coqui-ai/TTS)
 
 ## ✨ Features
 
