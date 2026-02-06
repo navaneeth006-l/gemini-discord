@@ -9,7 +9,7 @@
 ## ✨ Features
 
 * **🧠 Dual-Brain Engine:**
-  * **Mode A (Cloud):** Uses Google Gemini 1.5 Flash for high-speed, smart responses.
+  * **Mode A (Cloud):** Uses Google Gemini 2.5 Flash for high-speed, smart responses.
   * **Mode B (Local):** Uses **Ollama** (Llama3 / Phi-3) for completely offline privacy.
 * **🗣️ Real-time Voice (TTS):** Generates voice replies locally using Coqui XTTS v2 (requires GPU).
 * **🎵 Music Player:** Plays local MP3 files with **Smart History** (remembers what it played).
