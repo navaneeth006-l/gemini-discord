@@ -92,6 +92,55 @@ function playTrack(guildId, fileName, connection) {
     if (currentState) player.emit(AudioPlayerStatus.Idle);
   });
 }
+async function urltogenerative(url, mimeType){
+  const response = await fetch(url);
+  const buffer = await response.arrayBuffer();
+  return{
+    inlineData: {
+      data: Buffer.from(buffer).toString("base64"),
+      mimeType
+    },
+  };
+}
+// --- HELPER: Split long messages to avoid Discord 2000 char limit ---
+async function sendSplitMessage(interactionOrMsg, text) {
+    const MAX_LENGTH = 1950; // Leave buffer space
+    if (text.length <= MAX_LENGTH) {
+        // Handle both Slash Commands (editReply) and Regular Messages (reply)
+        if (interactionOrMsg.editReply) {
+             // If interaction is deferred/replied, use editReply
+             if (interactionOrMsg.deferred || interactionOrMsg.replied) {
+                 return interactionOrMsg.editReply(text);
+             }
+             return interactionOrMsg.reply(text);
+        }
+        return interactionOrMsg.reply(text);
+    }
+
+    // Split logic
+    const chunks = text.match(new RegExp(`.{1,${MAX_LENGTH}}`, 'g'));
+    
+    // Send first chunk
+    if (interactionOrMsg.editReply) {
+         if (interactionOrMsg.deferred || interactionOrMsg.replied) {
+             await interactionOrMsg.editReply(chunks[0]);
+         } else {
+             await interactionOrMsg.reply(chunks[0]);
+         }
+    } else {
+        await interactionOrMsg.reply(chunks[0]);
+    }
+
+    // Send remaining chunks as follow-ups
+    for (let i = 1; i < chunks.length; i++) {
+        if (interactionOrMsg.followUp) {
+            await interactionOrMsg.followUp(chunks[i]);
+        } else {
+            // For standard messages, just send to channel
+            await interactionOrMsg.channel.send(chunks[i]);
+        }
+    }
+}
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const { commandName } = interaction;
@@ -239,6 +288,26 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot || !msg.content.startsWith(".")) return;
+  if (msg.attachments.size > 0 && msg.content.toLowerCase().includes("roast")){
+    try{
+      const attachment = msg.attachments.first();
+      if (!attachment.contentType.startsWith('image/')){
+        return msg.reply("Hmph. Thats not an image file, baka!");
+      }
+      await msg.channel.sendTyping();
+      const imagePart = await urltogenerative(attachment.url,attachment.contentType);
+      const prompt = `You are a savage Tsundere named ${BOT_NAME}. 
+      Look at this image. Find the messiest, weirdest, or most embarrassing detail. 
+      Roast the user named "${msg.author.username}" for it. Be funny but mean.Dont hold back. Dont forget to describe the image.`;
+      const result = await model.generateContent([prompt, imagePart]);
+      const response = await result.response;
+      await sendSplitMessage(msg, response.text());
+      return;
+    }catch(err){
+      console.error("Vision error:",err);
+      return msg.reply("Ugh I cant look at that. My eyes hurt.");
+    }
+  }
   if (msg.reference && msg.reference.messageId) {
     try {
       const repliedMessage = await msg.channel.messages.fetch(msg.reference.messageId);
