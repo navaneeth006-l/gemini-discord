@@ -1,4 +1,8 @@
 .env
 node_modules/
 music/
-tts-service
+.venv/
+venv/
+tts-service/*
+!tts-service/*.py
+!tts-service/requirements.txt
