@@ -57,9 +57,20 @@ It is reccomended to use a virtual environment.
 python -m venv venv
 #Activate it (Windows)
 .\venv\Scripts\activate
-#Install Python Requirements
+```
+⚠️ IMPORTANT: Install PyTorch First
+
+If you have an NVIDIA GPU, you must install the CUDA version of PyTorch manually before installing the other requirements.
+
+For NVIDIA GPU Users (Windows):
+```bash
 pip install torch torchvision torchaudio --index-url [https://download.pytorch.org/whl/cu118](https://download.pytorch.org/whl/cu118)
-pip install TTS flask requests
+```
+For CPU Users: (Skip the step above, standard pip install works fine)
+
+Install Remaining Dependencies
+```bash
+pip install -r requirements.txt
 ```
 ### 4.Setup Ollama (Optional)
 If you want to use the local brain instead of Gemini:

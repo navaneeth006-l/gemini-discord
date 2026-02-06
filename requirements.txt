@@ -1,0 +1,9 @@
+torch
+torchvision
+torchaudio
+TTS
+flask
+requests
+python-dotenv
+google-generative-ai
+discord.js
